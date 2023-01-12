@@ -1,0 +1,26 @@
+#script for checking county parcel records for properties owned by corporate landlord LLCs
+#assumes you have existing datasets for both. matches off name and not off address. example uses hennepin county.
+
+library(tidyverse)
+library(dplyr)
+
+#load data from dropbox
+parcels <- read_csv('https://www.dropbox.com/s/jf78ni9a9ane4s1/hennepin_county_parcels_residential_9_23.csv?dl=1')
+
+llcs <- read_csv('https://www.dropbox.com/s/sudkawzzebwx65x/progress_LLCs_formatted_for_analysis.csv?dl=1')
+
+#select records from parcels where own name matches known progress LLC name
+#start with OWNER_NM field
+matchingparcels <- parcels[parcels$OWNER_NM %in% llcs$Name, ]
+unique(matchingparcels$OWNER_NM)
+#check all other fields
+matchingparcels2 <- parcels[parcels$TAXPAYER_NM %in% llcs$Name, ]
+unique(matchingparcels2$TAXPAYER_NM)
+
+matchingparcels3 <-parcels[parcels$TAXPAYER_NM_1 %in% llcs$Name, ]
+unique(matchingparcels3$TAXPAYER_NM_1)
+#field usually does not include LLC info so returns nothing
+
+matchingparcels4 <-parcels[parcels$TAXPAYER_NM_2 %in% llcs$Name, ]
+unique(matchingparcels4$TAXPAYER_NM_2)
+#same as above.
