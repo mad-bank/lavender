@@ -1,0 +1,44 @@
+library(tidyverse)
+library(ggmap)
+
+register_google(key = "", write = TRUE)
+
+addresses <- read.csv('')
+
+#add state column so geocoding works well
+addresses$propstate <- "MN"
+
+PE <- addresses %>% filter(entity_type == 'PE')
+REIT <- addresses %>% filter(entity_type == 'REIT')
+
+#create unified address columns
+PE$un_address <- paste(PE$par_address, PE$ctu_name, PE$propstate, sep = ", ")
+REIT$un_address <- paste(REIT$par_address, REIT$ctu_name, REIT$propstate, sep = ", ")
+
+#geocode
+PE <- mutate_geocode(PE, location = un_address, output = "latlona")
+REIT <- mutate_geocode(REIT, location = un_address, output = "latlona")
+
+#split into successfully geocoded and ones that need review
+#apparently none needed review, so i've pounded this out, but leaving for future
+#REIT <- REIT[!is.na(REIT$lon) & REIT$lon != "", ]
+#REIT_bad <- REIT[is.na(REIT$lon) | REIT$lon == "", ]
+#PE <- PE[!is.na(PE$lon) & PE$lon != "", ]
+#PE_bad <- PE[is.na(PE$lon) | PE$lon == "", ]
+#combine bads
+#bad <- rbind(REIT_bad, PE_bad)
+
+#set correct CRS
+library(sp)
+coordinates(PE) <- c("lon", "lat")
+proj4string(PE) <- CRS("+proj=longlat +datum=WGS84")
+PE <- spTransform(PE, CRS("+init=EPSG:26915"))
+
+coordinates(REIT) <- c("lon", "lat")
+proj4string(REIT) <- CRS("+proj=longlat +datum=WGS84")
+REIT <- spTransform(REIT, CRS("+init=EPSG:26915"))
+
+
+#write
+write.csv(REIT, "REIT_SFR.csv", row.names = TRUE)
+write.csv(PE, "PE_SFR.csv", row.names = TRUE)
