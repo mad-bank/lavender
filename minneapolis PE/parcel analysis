@@ -1,0 +1,131 @@
+#LOAD LIBRARIES
+library(tidyverse)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+#load parcel data from dropbox link
+par <- read.csv("")
+names(par)
+
+#split into top PE/REIT landlords: 
+## home partners of america
+## invitation homes
+## MNSF
+## progress
+## Colchis Capital
+## carpathian capital
+## Bridge
+
+####################################### DATA CLEANING ######################################## 
+
+#define keywords and entity types to filter for
+#pretium is spelled "peritium" in the original dataset and i was too lazy to change it
+keywords <- c("peritium", "mnsf", "invitation", "home partners", "hennepin rp funding", 
+              "carpathian")
+entity_types <- c("PE", "REIT")
+
+#filter the data so only PE and REIT entity types remain
+par <- par %>%
+  filter(grepl(paste(keywords, collapse = "|"), clean_tax, ignore.case = TRUE) |
+           entity_type %in% entity_types)
+
+#check list of PE/REIT landlords from filtered list to make sure nothing was missed
+unique(par$nickname) 
+
+#check NAs
+na_rows <- par[is.na(par$nickname), ]
+print(na_rows)
+#fix the two NAs that show up to Colchis Capital
+par <- par %>%
+  mutate(nickname = ifelse(county_pin %in% c("053-3302824220102", "053-2011921120049"), "Colchis Capital", nickname))
+
+##################################### DATA ANALYSIS #####################################
+
+#find median square footage by company
+median_sf <- par %>%
+  group_by(nickname) %>%
+  summarize(median_total_sq = median(total_sq, na.rm = TRUE))
+
+print(median_sf)
+
+#generate a count of homes per company
+nickname_counts <- table(par$nickname)
+print(nickname_counts)
+
+#find median home construction date by company
+median_year <- par %>%
+  group_by(nickname) %>%
+  summarize(median_year_built = median(year_built, na.rm = TRUE))
+print(median_year)
+
+#find median and average sale value by company
+median_sale_value <- par %>%
+  group_by(nickname) %>%
+  summarize(median_sale_v = median(sale_value, na.rm = TRUE))
+print(median_sale_value)
+
+#find average sale value by company
+average_sale_value <- par %>%
+  group_by(nickname) %>%
+  summarize(av_sale_v = mean(sale_value, na.rm = TRUE))
+print(average_sale_value)
+
+
+#generate count per county
+county_counts <- table(par$county)
+county_counts
+
+#######################################  DATA VISUALIZATION ####################################### 
+
+#visualize purchasing behavior over time
+
+# TIME SERIES
+## convert date column to date data format
+par$sale_date <- as.Date(par$sale_date)
+##create gg chart
+summary_data <- par %>%
+  group_by(sale_date, nickname) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+#smoothed - this is generally not useful as a narrative tool
+chart <- ggplot(summary_data, aes(x = sale_date, y = count, color = nickname)) +
+  geom_line(stat = "smooth", method = "loess", formula = y ~ x, show.legend = TRUE, size = .5, span = 1) +
+  labs(x = "Sale Date", y = "Number of Properties Purchased", title = "Landlord Home Purchasing Activity Over Time") +
+  scale_x_date(limits = as.Date(c("2000-01-01", max(par$sale_date)))) +
+  scale_y_continuous(limits = c(0, 200)) +  # Set the y-axis to start at 0
+  theme_minimal() +
+  theme(legend.position = "bottom", legend.box = "horizontal")
+
+chart
+
+# not smoothed - this gives enough detail to understand the narrative, but it is ugly
+chart2 <- ggplot(par, aes(x = sale_date, group = nickname, color = nickname)) +
+  geom_line(stat = "count", show.legend = FALSE) +
+  labs(x = "Sale Date", y = "Number of Purchases", title = "Landlord Home Purchasing Activity Over Time") +
+  scale_x_date(limits = as.Date(c("2000-01-01", max(par$sale_date)))) +
+  theme_minimal()+
+  theme(legend.position = "bottom", legend.box = "horizontal")
+
+chart2
+
+#all home purchases
+purchase_counts <- par %>%
+  group_by(sale_date) %>%
+  summarise(purchase_count = n()) %>%
+  ungroup()
+
+#not sure what i ended up using this for haha
+# Create the line chart with x-axis starting from 2000-01-01
+chart3 <- ggplot(purchase_counts, aes(x = sale_date, y = purchase_count)) +
+  geom_line(show.legend = FALSE) +
+  labs(x = "Sale Date", y = "Number of Home Purchases", title = "Home Purchase Rates Over Time") +
+  scale_x_date(limits = as.Date(c("2000-01-01", max(par$sale_date)))) +
+  theme_minimal()
+
+chart3
+
+
+
+
